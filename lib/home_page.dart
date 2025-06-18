@@ -14,12 +14,35 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> allNotes = [];
   DBHelper? dbRef;
 
+
+
+  double posX = 0;
+  double posY = 0;
+
   @override
   void initState() {
     super.initState();
     dbRef = DBHelper.getInstance;
     getNotes();
+    // Delay getting screen size until layout is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final size = MediaQuery.of(context).size;
+      setState(() {
+        posX = (size.width - 56) / 2; // Center horizontally (56 = FAB size)
+        posY = size.height - 200; // Near bottom (adjust for AppBar & padding)
+      });
+    });
   }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    descController.dispose();
+    // TODO: implement dispose
+    super.dispose();
+  }
+
+
 
   void getNotes() async {
     allNotes = await dbRef!.getAllNote();
@@ -35,98 +58,124 @@ class _HomePageState extends State<HomePage> {
       ),
 
       /// all notes viewed here
-      body: allNotes.isNotEmpty
-          ? ListView.builder(
-          itemCount: allNotes.length,
-          itemBuilder: (_, index) {
-            return Card(
-              color: Colors.amber.shade100,
-              child: ListTile(
-                // leading: Text('${index+1}'),
-                leading: Text('${allNotes[index][DBHelper.noteNo]}'),
-                title: Text(allNotes[index][DBHelper.noteTitle]),
-                subtitle: Text(allNotes[index][DBHelper.noteDesc]),
-                trailing: SizedBox(
-                  width: 50,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text("",style: TextStyle(fontSize: 12),),
-                      InkWell(
-                          onTap: () {
-                            titleController.text = allNotes[index]
-                            [DBHelper.noteTitle];
-                            descController.text = allNotes[index]
-                            [DBHelper.noteDesc];
-                            print(DBHelper.noteNo);
-                            // print(allNotes[index][DBHelper.noteNo]+DBHelper.noteNo);
-                            showModalBottomSheet(
-                              isScrollControlled: true,
-                                context: context,
-                                builder: (context) {
-                                  return Container(
-                                    padding: EdgeInsets.only(
-                                    bottom: MediaQuery.of(context).viewInsets.bottom, // return keyboard size if open, and it's valid for all widget what like keyboard 
-                                  ),
-                                    // height: 600, // if i use size here height we get fix height otherwise we gat what size has taken by child
-                                    child: SingleChildScrollView(
-                                      child: getBottomSheetWidget(
-                                          isUpdate: true,
-                                          sno: allNotes[index]
-                                          [DBHelper.noteNo],
-                                      ),
-                                    ),
-                                  );
-                                });
-                          },
-                          child: Icon(Icons.edit)),
-                      InkWell(
-                        onTap: ()async{
-                          bool confirm =await showConfirmDialog(context: context, title: "Do you want to delete This note?");
-                          if(confirm){
-                            bool check = await dbRef!.deleteNote(sl_no: allNotes[index][DBHelper.noteNo]);
-                            if(check){
-                              getNotes();
-                            }
-                          }
-                        },
-                        child: Icon(
-                          Icons.delete,
-                          color: Colors.red,
+      body: 
+      Stack(
+        children: [
+          Column(
+          children :[
+            allNotes.isNotEmpty ? Expanded(
+              child: ListView.builder(
+                itemCount: allNotes.length,
+                itemBuilder: (_, index) {
+                  return Card(
+                    color: Colors.amber.shade100,
+                    child: ListTile(
+                      // leading: Text('${index+1}'),
+                      leading: Text('${allNotes[index][DBHelper.noteNo]}'),
+                      title: Text(allNotes[index][DBHelper.noteTitle]),
+                      subtitle: Text(allNotes[index][DBHelper.noteDesc]),
+                      trailing: SizedBox(
+                        width: 50,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text("",style: TextStyle(fontSize: 12),),
+                            InkWell(
+                                onTap: () {
+                                  titleController.text = allNotes[index]
+                                  [DBHelper.noteTitle];
+                                  descController.text = allNotes[index]
+                                  [DBHelper.noteDesc];
+                                  print(DBHelper.noteNo);
+                                  // print(allNotes[index][DBHelper.noteNo]+DBHelper.noteNo);
+                                  showModalBottomSheet(
+                                    isScrollControlled: true,
+                                      context: context,
+                                      builder: (context) {
+                                        return Container(
+                                          padding: EdgeInsets.only(
+                                            bottom: MediaQuery.of(context).viewInsets.bottom, // return keyboard size if open, and it's valid for all widget what like keyboard 
+                                          ),
+                                          // height: 600, // if i use size here height we get fix height otherwise we gat what size has taken by child
+                                          child: SingleChildScrollView(
+                                            child: getBottomSheetWidget(
+                                                isUpdate: true,
+                                                sno: allNotes[index]
+                                                [DBHelper.noteNo],
+                                            ),
+                                          ),
+                                        );
+                                      });
+                                },
+                                child: Icon(Icons.edit)),
+                            InkWell(
+                              onTap: ()async{
+                                bool confirm =await showConfirmDialog(context: context, title: "Do you want to delete This note?");
+                                if(confirm){
+                                  bool check = await dbRef!.deleteNote(sl_no: allNotes[index][DBHelper.noteNo]);
+                                  if(check){
+                                    getNotes();
+                                  }
+                                }
+                              },
+                              child: Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                }),
+            )
+              : Center(
+              child: Text('No Notes yet!!'),
+            ),
+          ]
+                    ),
+      
+            Positioned(
+              left: posX,
+              top: posY,
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  setState(() {
+                    posX += details.delta.dx;
+                    posY += details.delta.dy;
+                  });
+                },
+                child: FloatingActionButton(
+                  onPressed: () async {
+                    /// note to be added from here
+                    titleController.clear();
+                    descController.clear();
+                    showModalBottomSheet(
+                      isScrollControlled: true,
+                      context: context,
+                      builder: (context) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(context).viewInsets.bottom,// by this padding we are fixing the keyboard ovarlapping, when keyboard open it return keyboard size. it's will be valid for snackber, etc
+                          ),
+                          child: SingleChildScrollView(
+                            child: getBottomSheetWidget(),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                child: Icon(Icons.add),
               ),
-            );
-          })
-          : Center(
-        child: Text('No Notes yet!!'),
+            ),
+          )
+        ],
       ),
 
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          /// note to be added from here
-          titleController.clear();
-          descController.clear();
-          showModalBottomSheet(
-  isScrollControlled: true,
-  context: context,
-  builder: (context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,// by this padding we are fixing the keyboard ovarlapping, when keyboard open it return keyboard size. it's will be valid for snackber, etc
-      ),
-      child: SingleChildScrollView(
-        child: getBottomSheetWidget(),
-      ),
-    );
-  },
-);
-        },
-        child: Icon(Icons.add),
-      ),
+
+
+
     );
   }
 
